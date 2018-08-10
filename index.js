@@ -4,12 +4,20 @@ const backlog_domain = process.env.BACKLOG_URL;
 const webhook_url = process.env.SLACK_WEBHOOK_URL;
 const request = require('request');
 
-const key_name = (body) => {
-    return body.project.projectKey + "-" + body.content.key_id;
+const key_name = (body, key_id) => {
+    if(key_id) {
+        return body.project.projectKey + "-" + key_id;
+    } else {
+        return body.project.projectKey + "-" + body.content.key_id;
+    }
 }
 
-const backlog_url = (body) => {
-    return backlog_domain + "/view/" + key_name(body);
+const backlog_url = (body, key_id) => {
+    if(key_id) {
+        return backlog_domain + "/view/" + body.project.projectKey + "-" + key_id;
+    } else {
+        return backlog_domain + "/view/" + key_name(body);
+    }
 }
 
 const issue_title = (body) => {
@@ -107,11 +115,13 @@ const build_updated_issue = (body) => {
 
 const build_bulk_updated_issues = (body) => {
     var fields_changes = build_changes(body);
-    var fields_default =
+    var fields_issue_list =
         [{
             title: "変更された課題リスト",
-            value: body.content.link.map(l => l.title).join(", ")
-        }, {
+            value: body.content.link.map(l => "<" + backlog_url(body, l.key_id) + "|" + key_name(body, l.key_id) + ": " + l.title + ">").join("\n")
+        }];
+    var fields_default =[
+        {
             title: "コメント",
             value: (body.content.comment || {}).content || "なし"
         }, {
@@ -122,15 +132,13 @@ const build_bulk_updated_issues = (body) => {
             title: "更新者",
             value: body.createdUser.name,
             short: true
-        }]
+        }];
 
     return {
         text: "[" + body.project.name + "] " + "課題が一括更新されました",
         attachments: [{
             color: "#cc9",
-            title: issue_title(body),
-            title_link: backlog_url(body),
-            fields: fields_changes.concat(fields_default)
+            fields: fields_issue_list.concat(fields_changes).concat(fields_default)
         }]
     }
 }
