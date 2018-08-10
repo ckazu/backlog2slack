@@ -241,12 +241,12 @@ const build_change_field = (change) => {
 }
 
 exports.backlog2slack = (req, res) => {
-    console.log(req.body);
+    console.log(JSON.stringify(req.body));
 
     const body = req.body
     var response = build_response_json(body);
 
-    console.log(response);
+    console.log(JSON.stringify(response));
 
     request.post({
         uri: webhook_url,
@@ -262,4 +262,3 @@ exports.backlog2slack = (req, res) => {
         res.status(200).end();
     });
 };
-
