@@ -211,6 +211,8 @@ const build_change_field = (change) => {
     switch(change.field) {
     case 'summary':
         return { title: '件名', value: change.old_value + " => " + change.new_value };
+    case 'issueType':
+        return { title: '種別', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
     case 'description':
         return { title: '詳細', value: '本文が更新されました（差分省略）', short: true };
     case 'component':
