@@ -3,6 +3,7 @@
 const backlog_domain = process.env.BACKLOG_URL;
 const webhook_url = process.env.SLACK_WEBHOOK_URL;
 const request = require('request');
+const diff = require('diff');
 
 const key_name = (body, key_id) => {
     if(key_id) {
@@ -222,7 +223,18 @@ const build_change_field = (change) => {
     case 'issueType':
         return { title: '種別', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
     case 'description':
-        return { title: '詳細', value: '本文が更新されました（差分省略）', short: true };
+        const diffLines = diff.diffLines(change.old_value, change.new_value);
+        let text = '';
+        diffLines.forEach( (d) => {
+            if(!d.value.match((/^\n+$/))) {
+                if(d.added) {
+                    text += `+ ${d.value.trim().replace(/\n/g, '\n  ')}\n`
+                } else if (d.removed) {
+                    text += `- ~${d.value.trim().replace(/\n/g, '~\n  ~')}~\n`
+                }
+            }
+        });
+        return { title: '詳細', value: text, short: false };
     case 'component':
         return { title: 'カテゴリー', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
     case 'version':
