@@ -1,5 +1,4 @@
 // todo: refactor
-// todo: convert to typescript
 const backlog_domain = process.env.BACKLOG_URL;
 const webhook_url = process.env.SLACK_WEBHOOK_URL;
 const request = require('request');
@@ -7,23 +6,23 @@ const diff = require('diff');
 
 const key_name = (body, key_id) => {
     if(key_id) {
-        return body.project.projectKey + "-" + key_id;
+      return `${body.project.projectKey}-${key_id}`;
     } else {
-        return body.project.projectKey + "-" + body.content.key_id;
+      return `${body.project.projectKey}-${body.content.key_id}`;
     }
-}
+};
 
 const backlog_url = (body, key_id) => {
     if(key_id) {
-        return backlog_domain + "/view/" + body.project.projectKey + "-" + key_id;
+        return `${backlog_domain}/view/${body.project.projectKey}-${key_id}`;
     } else {
-        return backlog_domain + "/view/" + key_name(body);
+        return `${backlog_domain}/view/${key_name(body)}`;
     }
-}
+};
 
 const issue_title = (body) => {
-    return key_name(body) + ": " + body.content.summary;
-}
+    return `${key_name(body)}: ${body.content.summary}`;
+};
 
 const build_response_json = (body) => {
     switch(body.type) {
@@ -40,11 +39,11 @@ const build_response_json = (body) => {
     default:
         return JSON.stringify(body);
     }
-}
+};
 
 const build_added_issue = (body) => {
     return {
-        text: "[" + body.project.name + "] " + "新しい課題が追加されました",
+        text: `[${body.project.name}] 新しい課題が追加されました`,
         attachments: [{
             color: "good",
             title: issue_title(body),
@@ -84,8 +83,8 @@ const build_added_issue = (body) => {
                 short: true
             }]
         }]
-    }
-}
+    };
+};
 
 const build_updated_issue = (body) => {
     var fields_changes = build_changes(body);
@@ -101,25 +100,25 @@ const build_updated_issue = (body) => {
             title: "更新者",
             value: body.createdUser.name,
             short: true
-        }]
+        }];
 
     return {
-        text: "[" + body.project.name + "] " + "課題が更新されました",
+        text: `[${body.project.name}] 課題が更新されました`,
         attachments: [{
             color: "warning",
             title: issue_title(body),
             title_link: backlog_url(body),
             fields: fields_changes.concat(fields_default)
         }]
-    }
-}
+    };
+};
 
 const build_bulk_updated_issues = (body) => {
     var fields_changes = build_changes(body);
     var fields_issue_list =
         [{
             title: "変更された課題リスト",
-            value: body.content.link.map(l => "<" + backlog_url(body, l.key_id) + "|" + key_name(body, l.key_id) + ": " + l.title + ">").join("\n")
+            value: body.content.link.map(l => `<${backlog_url(body, l.key_id)}|${key_name(body, l.key_id)}: ${l.title}>`).join("\n")
         }];
     var fields_default =[
         {
@@ -136,17 +135,17 @@ const build_bulk_updated_issues = (body) => {
         }];
 
     return {
-        text: "[" + body.project.name + "] " + "課題が一括更新されました",
+        text: `[${body.project.name}] 課題が一括更新されました`,
         attachments: [{
             color: "#cc9",
             fields: fields_issue_list.concat(fields_changes).concat(fields_default)
         }]
-    }
-}
+    };
+};
 
 const build_commented_issue = (body) => {
     return {
-        text: "[" + body.project.name + "] " + "課題にコメントが追加されました",
+        text: `[${body.project.name}] 課題にコメントが追加されました`,
         attachments: [{
             color: "#33c",
             title: issue_title(body),
@@ -164,12 +163,12 @@ const build_commented_issue = (body) => {
                 short: true
             }]
         }]
-    }
-}
+    };
+};
 
 const build_deleted_issue = (body) => {
     return {
-        text: "[" + body.project.name + "] " + "課題が削除されました",
+        text: `[${body.project.name}] 課題が削除されました`,
         attachments: [{
             color: "danger",
             title: backlog_url(body),
@@ -179,8 +178,8 @@ const build_deleted_issue = (body) => {
                 short: true
             }]
         }]
-    }
-}
+    };
+};
 
 const state_label = (num) => {
     switch(num) {
@@ -190,7 +189,7 @@ const state_label = (num) => {
     case '4': return '完了';
     default: return num;
     }
-}
+};
 
 const priority_label = (num) => {
     switch(num) {
@@ -199,7 +198,7 @@ const priority_label = (num) => {
     case '4': return '低';
     default: return num;
     }
-}
+};
 
 const resolution_label = (num) => {
     switch(num) {
@@ -210,62 +209,62 @@ const resolution_label = (num) => {
     case '4': return '再現しない';
     default: return num;
     }
-}
+};
 
 const build_changes = (body) => {
     return body.content.changes.map(change => build_change_field(change));
-}
+};
 
 const build_change_field = (change) => {
     switch(change.field) {
     case 'summary':
-        return { title: '件名', value: change.old_value + " => " + change.new_value };
+        return { title: '件名', value: `${change.old_value} => ${change.new_value}` };
     case 'issueType':
-        return { title: '種別', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: '種別', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'description':
         const diffLines = diff.diffLines(change.old_value, change.new_value);
         let text = '';
         diffLines.forEach( (d) => {
             if(!d.value.match((/^\n+$/))) {
                 if(d.added) {
-                    text += `+ ${d.value.trim().replace(/\n/g, '\n  ')}\n`
+                  text += `+ ${d.value.trim().replace(/\n/g, '\n  ')}\n`;
                 } else if (d.removed) {
-                    text += `- ~${d.value.trim().replace(/\n/g, '~\n  ~')}~\n`
+                  text += `- ~${d.value.trim().replace(/\n/g, '~\n  ~')}~\n`;
                 }
             }
         });
         return { title: '詳細', value: text, short: false };
     case 'component':
-        return { title: 'カテゴリー', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: 'カテゴリー', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'version':
-        return { title: '発生バージョン', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: '発生バージョン', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'milestone':
-        return { title: 'マイルストーン', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: 'マイルストーン', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'status':
-        return { title: '状態', value: (state_label(change.old_value) || '( - )') + " => " + (state_label(change.new_value) || '( - )'), short: true };
+        return { title: '状態', value: `${state_label(change.old_value) || '( - )'} => ${state_label(change.new_value) || '( - )'}`, short: true };
     case 'assigner':
-        return { title: '担当者', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: '担当者', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'startDate':
-        return { title: '開始日', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: '開始日', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'limitDate':
-        return { title: '期限日', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: '期限日', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'priority':
-        return { title: '優先度', value: (priority_label(change.old_value) || '( - )') + " => " + (priority_label(change.new_value) || '( - )'), short: true };
+        return { title: '優先度', value: `${priority_label(change.old_value) || '( - )'} => ${priority_label(change.new_value) || '( - )'}`, short: true };
     case 'resolution':
-        return { title: '完了理由', value: (resolution_label(change.old_value) || '( - )') + " => " + (resolution_label(change.new_value) || '( - )'), short: true };
+        return { title: '完了理由', value: `${resolution_label(change.old_value) || '( - )'} => ${resolution_label(change.new_value) || '( - )'}`, short: true };
     case 'estimatedHours':
-        return { title: '予定時間', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: '予定時間', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     case 'actualHours':
-        return { title: '実績時間', value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )'), short: true };
+        return { title: '実績時間', value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}`, short: true };
     default:
-        return { title: change.field, value: (change.old_value || '( - )') + " => " + (change.new_value || '( - )')};
+        return { title: change.field, value: `${change.old_value || '( - )'} => ${change.new_value || '( - )'}` };
     }
-}
+};
 
 exports.backlog2slack = (req, res) => {
     console.log(JSON.stringify(req.body));
 
-    const body = req.body
+    const body = req.body;
     var response = build_response_json(body);
 
     console.log(JSON.stringify(response));
